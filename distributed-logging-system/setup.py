@@ -7,7 +7,15 @@ setup(
     install_requires=[
         'flask',
         'requests',
-        'fluent-logger',  # Add this new dependency
-        'networkx'
-    ]
+        'fluent-logger',
+        'networkx',
+        'elasticsearch',
+        'kafka-python',
+        'colorama',
+        'opentelemetry-api',
+        'opentelemetry-sdk',
+        'opentelemetry-instrumentation-flask',
+        'opentelemetry-instrumentation-requests'
+    ],
+    python_requires='>=3.8'
 )

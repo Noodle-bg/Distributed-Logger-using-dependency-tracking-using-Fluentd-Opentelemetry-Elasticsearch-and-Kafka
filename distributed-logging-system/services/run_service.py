@@ -3,11 +3,11 @@ from flask import Flask
 
 def run_service(service_name: str):
     if service_name == "a":
-        from service_a import create_app  # Remove the dot
+        from service_a import create_app
     elif service_name == "b":
-        from service_b import create_app  # Remove the dot
+        from service_b import create_app
     elif service_name == "c":
-        from service_c import create_app  # Remove the dot
+        from service_c import create_app
     elif service_name == "d":
         from service_d import create_app
     elif service_name == "e":
