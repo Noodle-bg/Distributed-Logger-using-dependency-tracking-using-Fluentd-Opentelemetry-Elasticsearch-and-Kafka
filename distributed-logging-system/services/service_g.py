@@ -1,7 +1,7 @@
 # services/service_g.py
 
 from flask import Flask, jsonify, request
-from base_service import BaseService
+from base_service import BaseService, create_flask_app
 import requests
 import logging
 from datetime import datetime
@@ -198,8 +198,8 @@ class ServiceG(BaseService):
                 }
 
 def create_app():
-    app = Flask(__name__)
     service = ServiceG()
+    app = create_flask_app(service)
 
     @app.route('/process', methods=['GET'])
     def process():
@@ -231,9 +231,11 @@ def create_app():
 
     @app.route('/health', methods=['GET'])
     def health():
+        idle_time = datetime.now() - service.last_request_time
         return jsonify({
             'service': 'ServiceG',
             'status': 'healthy',
+            "idle_time_minutes":idle_time.total_seconds()/60,
             'timestamp': datetime.utcnow().isoformat(),
             'version': '1.0.0',
             'metrics': {

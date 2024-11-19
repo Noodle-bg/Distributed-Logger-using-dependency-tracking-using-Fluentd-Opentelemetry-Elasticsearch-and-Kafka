@@ -68,6 +68,21 @@ class ElasticsearchConsumer:
                 }
             }
         }
+
+        # Registry Mapping
+        registry_mapping = {
+            "mappings":{
+                "properties":{
+                    "node_id":{"type":"keyword"},
+                    "service_name":{"type":"keyword"},
+                    "status":{"type":"keyword"},
+                    "registration_time":{"type":"date"},
+                    "last_heartbeat":{"type":"date"},
+                    "dependencies":{"type":"keyword"}
+
+                }
+            }
+        }
         
         # Create indices if they don't exist
         if not self.es.indices.exists(index='service_logs'):
@@ -77,15 +92,43 @@ class ElasticsearchConsumer:
         if not self.es.indices.exists(index='heartbeat_logs'):
             self.es.indices.create(index='heartbeat_logs', body=heartbeat_mapping)
             logger.info("Created heartbeat_logs index")
+        
+        if not self.es.indices.exists(index='service_registry'):
+            self.es.indices.create(index = 'service_registry',body = registry_mapping)
+            logger.info("created service_registry index")
+    
+
+    def _handle_registration(self,registration_data:dict):
+        """
+        Store registration INFO
+        """
+        try:
+            node_id = registration_data.get('node_id')
+            if not node_id:
+                return
+            registry_doc = {
+                "node_id":node_id,
+                "service_name":registration_data.get('service_name'),
+                "status":registration_data.get('status','UP'),
+                "registration_time":registration_data.get("timestamp"),
+                "last_heartbeat":datetime.utcnow().isoformat(),
+                "dependencies":registration_data.get('dependencies',[])
+            }
+            self.es.index(
+                index = "service_registry",
+                document = registry_doc
+            )
+            logger.info(f"Updated Registry for service :{registry_doc['service_name']}")
+
+        except Exception as e:
+            logger.error(f"Error Handling registration :{e}")
 
     def _format_timestamp(self, log_data: dict) -> dict:
         """Ensure timestamp is in correct format"""
         if 'timestamp' in log_data:
             try:
-                # Try to parse the timestamp
                 datetime.fromisoformat(log_data['timestamp'].replace('Z', '+00:00'))
             except ValueError:
-                # If parsing fails, convert to ISO format
                 log_data['timestamp'] = datetime.fromisoformat(
                     log_data['timestamp']
                 ).isoformat()
@@ -100,6 +143,10 @@ class ElasticsearchConsumer:
             for message in self.consumers['service_logs']:
                 try:
                     log_data = self._format_timestamp(message.value)
+
+                    if log_data.get('message_type') == "REGISTRATION":
+                        self._handle_registration(log_data)
+
                     self.es.index(
                         index='service_logs',
                         document=log_data

@@ -1,7 +1,7 @@
 # services/service_a.py
 
 from flask import Flask, jsonify, request
-from base_service import BaseService
+from base_service import BaseService, create_flask_app
 import requests
 import logging
 from datetime import datetime
@@ -40,39 +40,9 @@ class ServiceA(BaseService):
 
                 # Call Service B
                 b_success, b_result = self._call_service_b(trace_id)
-                if not b_success:
-                    # Explicitly log dependency failure
-                    self.logger.error(
-                        "Service B dependency failed",
-                        error_code="DEPENDENCY_FAILURE",
-                        error_message=f"Service B failed: {b_result.get('error_message', 'Unknown error')}",
-                        trace_id=trace_id,
-                        dependent_service="ServiceB"
-                    )
-                    return False, {
-                        'trace_id': trace_id,
-                        'error': 'DEPENDENCY_FAILURE',
-                        'message': 'Service B dependency failed',
-                        'details': b_result
-                    }
 
                 # Call Service C
                 c_success, c_result = self._call_service_c(trace_id)
-                if not c_success:
-                    # Explicitly log dependency failure
-                    self.logger.error(
-                        "Service C dependency failed",
-                        error_code="DEPENDENCY_FAILURE",
-                        error_message=f"Service C failed: {c_result.get('error_message', 'Unknown error')}",
-                        trace_id=trace_id,
-                        dependent_service="ServiceC"
-                    )
-                    return False, {
-                        'trace_id': trace_id,
-                        'error': 'DEPENDENCY_FAILURE',
-                        'message': 'Service C dependency failed',
-                        'details': c_result
-                    }
 
                 # Check total processing time
                 processing_time_ms = (time.time() - start_time) * 1000
@@ -276,8 +246,8 @@ class ServiceA(BaseService):
                 }
 
 def create_app():
-    app = Flask(__name__)
     service = ServiceA()
+    app = create_flask_app(service=service)
 
     @app.route('/process', methods=['GET'])
     def process():
@@ -305,9 +275,11 @@ def create_app():
 
     @app.route('/health', methods=['GET'])
     def health():
+        idle_time = datetime.now() - service.last_request_time
         return jsonify({
             'service': 'ServiceA',
             'status': 'healthy',
+            'idle_time_minutes':idle_time.total_seconds()/60,
             'timestamp': datetime.utcnow().isoformat(),
             'version': '1.0.0',
             'dependencies': ['ServiceB', 'ServiceC']

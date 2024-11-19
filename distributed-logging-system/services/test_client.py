@@ -312,7 +312,7 @@ def main():
     input("\nPress Enter to start the load test (Ctrl+C to stop)...")
     
     try:
-        tester.run_load_test(500)
+        tester.run_load_test(150)
     except KeyboardInterrupt:
         print(f"\n{Fore.YELLOW}Test interrupted by user{Style.RESET_ALL}")
     

@@ -141,8 +141,7 @@ logger.error("Operation failed", error_code="ERR_001", error_message="Database t
 # Log service calls
 logger.log_service_call("ServiceA", success=True)
 
-# Clean up
-logger.cleanup()  # Call this when shutting down
+
 ```
 
 ## Running Setup

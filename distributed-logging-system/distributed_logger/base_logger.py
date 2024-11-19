@@ -23,6 +23,7 @@ class BaseLogger:
         self.service_name = service_name
         self.node_id = str(uuid.uuid4())
         self.dependencies = dependencies or []
+        self.heartbeat_interval = 10 # seconds
         
         # Initialize OpenTelemetry
         self._setup_telemetry()
@@ -30,11 +31,12 @@ class BaseLogger:
         # Initialize Fluentd logger
         self.fluentd = FluentdLogger()
         
+        # Register service
+        self._register_service()
+
         # Start heartbeat thread
         self._start_heartbeat()
         
-        # Register service
-        self._register_service()
         
         logger.info(f"Initialized BaseLogger for service: {service_name}")
 
@@ -65,7 +67,7 @@ class BaseLogger:
         self.propagator.inject(headers)
         return headers
 
-    def _register_service(self):
+    def _register_service(self, status: str = "UP"):
         """Register service with system"""
         with self.start_span("service_registration") as span:
             registration_data = {
@@ -73,11 +75,19 @@ class BaseLogger:
                 "message_type": "REGISTRATION",
                 "service_name": self.service_name,
                 "dependencies": self.dependencies,
+                "status": status,  # Now uses the status parameter
                 "timestamp": datetime.utcnow().isoformat()
             }
-            
             span.set_attribute("registration.dependencies", str(self.dependencies))
-            self.fluentd.emit_service_log(self.service_name, "registration", registration_data)
+            success = self.fluentd.emit_service_log(
+                self.service_name, 
+                "registration", 
+                registration_data
+            )
+            if success:
+                logger.info(f"Service {self.service_name} {status} registration sent")
+            else:
+                logger.error(f"Failed to send {status} registration for service {self.service_name}")
 
     def _send_heartbeat(self):
         """Send heartbeat with standardized format"""
@@ -97,9 +107,10 @@ class BaseLogger:
         while True:
             try:
                 self._send_heartbeat()
-                time.sleep(15)
+                time.sleep(self.heartbeat_interval)
             except Exception as e:
                 logger.error(f"Error in heartbeat loop: {e}")
+                time.sleep(1)
 
     def _start_heartbeat(self):
         """Start heartbeat mechanism"""

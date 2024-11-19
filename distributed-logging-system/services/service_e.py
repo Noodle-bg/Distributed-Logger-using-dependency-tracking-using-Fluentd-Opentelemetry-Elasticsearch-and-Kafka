@@ -1,7 +1,7 @@
 # services/service_e.py
 
 from flask import Flask, jsonify, request
-from base_service import BaseService
+from base_service import BaseService, create_flask_app
 import logging
 from datetime import datetime
 import time
@@ -178,8 +178,8 @@ class ServiceE(BaseService):
             return False, error_details
 
 def create_app():
-    app = Flask(__name__)
     service = ServiceE()
+    app = create_flask_app(service)
     
     @app.route('/process', methods=['GET'])
     def process():
@@ -188,7 +188,7 @@ def create_app():
             trace_id = request.headers.get('X-Trace-ID', str(uuid.uuid4()))
             
             # Service availability check
-            if random.random() < 0.3:  # 30% chance of service unavailability
+            if random.random() < 0.7:  # 30% chance of service unavailability
                 service.logger.error(
                     "Service unavailable",
                     error_code="E_UNAVAILABLE",
@@ -238,36 +238,16 @@ def create_app():
 
     @app.route('/health', methods=['GET'])
     def health_check():
-        try:
-            if random.random() < 0.7:  # 70% chance of degraded performance
-                service.logger.warn(
-                    "Degraded service performance detected",
-                    response_time_ms=random.randint(800, 2000),
-                    threshold_limit_ms=500
-                )
-                return jsonify({
-                    "service": "ServiceE",
-                    "status": "degraded",
-                    "issues": ["High error rate", "System instability", "Resource exhaustion"],
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "metrics": {
-                        "response_threshold_ms": service.response_threshold_ms
-                    }
-                }), 503
+        idle_time = datetime.now() - service.last_request_time
+
+        return jsonify({
+            "service": "ServiceE",
+            "status": "healthy",
+            "idle_time_minutes":idle_time.total_seconds()/60,
+            "timestamp": datetime.utcnow().isoformat(),
+            "version": "1.0.0"
+        })
             
-            return jsonify({
-                "service": "ServiceE",
-                "status": "healthy",
-                "timestamp": datetime.utcnow().isoformat(),
-                "version": "1.0.0"
-            })
-            
-        except Exception as e:
-            return jsonify({
-                "status": "error",
-                "service": "ServiceE",
-                "error": str(e)
-            }), 500
 
     return app
 
